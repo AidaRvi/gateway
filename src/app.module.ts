@@ -1,9 +1,12 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
+import { RedisModule } from './redis/redis.module';
 import { ClientsModule, Transport } from '@nestjs/microservices';
+import { AppService } from './app.service';
 
 @Module({
   imports: [
+    RedisModule,
     ClientsModule.register([
       {
         name: 'RABBITMQ_SERVICE',
@@ -20,6 +23,6 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
     ]),
   ],
   controllers: [AppController],
-  providers: [],
+  providers: [AppService],
 })
 export class AppModule {}
