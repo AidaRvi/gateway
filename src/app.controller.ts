@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Patch, Param } from '@nestjs/common';
+import { Controller, Post, Body, Patch, Param, Req } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { Observable } from 'rxjs';
@@ -14,29 +14,39 @@ export class AppController {
   ) {}
 
   @Post()
-  createContact(@Body() data: CreateContactDto): Observable<any> {
-    const result = this.client.send('create-contact', data);
+  async createContact(
+    @Body() data: CreateContactDto,
+    @Req() req: any,
+  ): Promise<Observable<any>> {
+    const correlationId = req.correlationId;
+    const result = this.client.send('create-contact', {
+      ...data,
+      correlationId,
+    });
     console.log('"create-contact" sent to Contacts');
 
-    this.redisService.setData(`create:${data.id}`, 'initialized');
-    this.redisService.saveCommand(`create`, data.id);
+    await this.redisService.setData(correlationId, 'initialized');
+    await this.redisService.saveCommand(`create`, correlationId);
 
     return result;
   }
 
   @Patch(':id')
-  updateContact(
+  async updateContact(
     @Param('id') id: string,
     @Body() data: UpdateContactDto,
-  ): Observable<any> {
+    @Req() req: any,
+  ): Promise<Observable<any>> {
+    const correlationId = req.correlationId;
     const result = this.client.send('update-contact', {
       id,
       ...data,
+      correlationId,
     });
     console.log('"update-contact" sent to Contacts');
 
-    this.redisService.setData(`update:${id}`, 'initialized');
-    this.redisService.saveCommand(`update`, id);
+    await this.redisService.setData(correlationId, 'initialized');
+    await this.redisService.saveCommand(`update`, correlationId);
 
     return result;
   }
