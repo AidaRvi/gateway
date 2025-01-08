@@ -1,7 +1,16 @@
-import { Controller, Post, Body, Patch, Param, Req } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Req,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import { Inject } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
-import { Observable } from 'rxjs';
+import { firstValueFrom, Observable } from 'rxjs';
 import { UpdateContactDto } from './dto/update-contact.dto';
 import { CreateContactDto } from './dto/create-contact.dto';
 import { RedisService } from './redis/redis.service';
@@ -14,21 +23,31 @@ export class AppController {
   ) {}
 
   @Post()
-  async createContact(
-    @Body() data: CreateContactDto,
-    @Req() req: any,
-  ): Promise<Observable<any>> {
+  async createContact(@Body() data: CreateContactDto, @Req() req: any) {
     const correlationId = req.correlationId;
-    const result = this.client.send('create-contact', {
-      ...data,
-      correlationId,
-    });
-    console.log('"create-contact" sent to Contacts');
 
-    await this.redisService.setData(correlationId, 'initialized');
-    await this.redisService.saveCommand(`create`, correlationId);
+    try {
+      await this.redisService.setData(correlationId, 'initialized');
 
-    return result;
+      const result = await firstValueFrom(
+        this.client.send('create-contact', {
+          ...data,
+          correlationId,
+        }),
+      );
+
+      console.log('"create-contact" sent to Contacts');
+
+      return result;
+    } catch (error) {
+      throw new HttpException(
+        {
+          correlationId,
+          message: error.message || 'Internal Server Error',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 
   @Patch(':id')
@@ -38,16 +57,28 @@ export class AppController {
     @Req() req: any,
   ): Promise<Observable<any>> {
     const correlationId = req.correlationId;
-    const result = this.client.send('update-contact', {
-      id,
-      ...data,
-      correlationId,
-    });
-    console.log('"update-contact" sent to Contacts');
 
-    await this.redisService.setData(correlationId, 'initialized');
-    await this.redisService.saveCommand(`update`, correlationId);
+    try {
+      await this.redisService.setData(correlationId, 'initialized');
 
-    return result;
+      const result = await firstValueFrom(
+        this.client.send('update-contact', {
+          id,
+          ...data,
+          correlationId,
+        }),
+      );
+      console.log('"update-contact" sent to Contacts');
+
+      return result;
+    } catch (error) {
+      throw new HttpException(
+        {
+          correlationId,
+          message: error.message || 'Internal Server Error',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 }
